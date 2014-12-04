@@ -10,7 +10,7 @@ Flags:
   --help              Show help.
   -q, --queue="/queue/client_test"
                       Destination
-  -s, --server="amq1.prod.us-east-1.aws.tropo.com"
+  -s, --server="amq1.prod.somewhere.com"
                       STOMP server endpoint
   -p, --port="61613"  STOMP server port
   -f, --file=FILE     File to process
