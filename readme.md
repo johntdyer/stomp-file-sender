@@ -23,9 +23,9 @@ Flags:
 
 ### Building
 
-   go get github.com/nitrous-io/goop
-   goop install
-   go build stomp-file-sender.go
+    go get github.com/nitrous-io/goop
+    goop install
+    go build stomp-file-sender.go
 
 
 ### Using
