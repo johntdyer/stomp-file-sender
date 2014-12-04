@@ -1,6 +1,6 @@
 # Stomp File Sender
 
-
+Small utility which reads a file line by line and sends to a queue via Stomp.  This was mainly an excercise to use channels for the first time.
 ## Usage
 
 ```
