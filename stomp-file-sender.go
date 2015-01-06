@@ -153,7 +153,7 @@ func sender(id int, client *Client, dataCh <-chan string) {
 	for message := range dataCh {
 		//fmt.Println("Worker", id, "message", len(message))
 
-		headers := stompngo.Headers{"destination", *queueName, "id", client.Uuid}
+		headers := stompngo.Headers{"destination", *queueName, "suppress-content-length", "true", "id", client.Uuid, "persistent", "true"}
 		err := client.StompConnection.Send(headers, message)
 		if err != nil {
 			fmt.Println(err)
