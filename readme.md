@@ -14,10 +14,11 @@ Flags:
                       STOMP server endpoint
   -p, --port="61613"  STOMP server port
   -f, --file=FILE     File to process
-  -w, --workers=WORKERS
+  -w, --workers=WORKERS ( Default 4 )
                       Number of workers to send/receive
-  --user=USER         Username
-  --pass=PASS         Password
+  --user=USER         Stomp username
+  --pass=PASS         Stomp password
+  -d, --debug         Debug mode
   --version           Show application version.
 ```
 
@@ -33,4 +34,16 @@ Flags:
 
     ./stomp-file-sender --user foo --pass bar --file example.log --server amq1.prod.somewhere.com
 
+
+
+## Change log
+
+* 0.1.1
+
+ * Progress percentage indicator
+
+* 0.1.0
+
+ * Support for long lines
+ * Improved logging
 
