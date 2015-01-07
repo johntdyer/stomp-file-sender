@@ -1,3 +1,4 @@
+simple_deployer_script.sh
 file.log
 failed-cdrs.log2
 stomp-file-sender
