@@ -1,14 +1,13 @@
 package main
 
 import (
-	"fmt"
 	logrus "github.com/Sirupsen/logrus"
-	"github.com/dustin/go-humanize"
 	"github.com/gmallard/stompngo"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -20,6 +19,7 @@ var (
 	workerCount   = kingpin.Flag("workers", "Number of workers to send/receive").Short('w').Int()
 	serverUser    = kingpin.Flag("user", "Username").OverrideDefaultFromEnvar("STOMP_USER").String()
 	serverPass    = kingpin.Flag("pass", "Password").OverrideDefaultFromEnvar("STOMP_PASS").String()
+	logFormatter  = kingpin.Flag("formatter", "Formatter (text, json)").Default("text").String()
 	debug         = kingpin.Flag("debug", "Enable debug mode.").Short('d').Bool()
 
 	client Client
@@ -41,7 +41,7 @@ type Client struct {
 }
 
 func init() {
-	kingpin.Version("0.1.1")
+	kingpin.Version("0.2.0")
 	kingpin.Parse()
 	logrus.SetOutput(os.Stderr)
 	if *debug {
@@ -49,6 +49,13 @@ func init() {
 	} else {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
+
+	if strings.ToLower(*logFormatter)) == "json" {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		logrus.SetFormatter(&logrus.TextFormatter{})
+	}
+
 	// Set default of 4 workers
 	if *workerCount == 0 {
 		*workerCount = 4
@@ -113,11 +120,13 @@ func fileReader(path string, dataCh chan<- string, producer_wg *sync.WaitGroup) 
 		linesProcessedCounter++
 		if linesProcessedCounter%1000 == 0 && *debug {
 
+			percentage := int((float64(linesProcessedCounter) / float64(totalLineCount)) * 100.0)
+
 			logrus.WithFields(logrus.Fields{
-				"Completed": fmt.Sprintf("%s", humanize.Ftoa((float64(linesProcessedCounter)/float64(totalLineCount))*100.0)),
-				"Finished":  linesProcessedCounter,
-				"Total":     totalLineCount,
-				"Remaining": (totalLineCount - linesProcessedCounter),
+				"Completed":      strconv.Itoa(percentage) + "%",
+				"LinesProcessed": linesProcessedCounter,
+				"LinesTotal":     totalLineCount,
+				"LinesRemaining": (totalLineCount - linesProcessedCounter),
 			}).Debug("Progress data")
 		}
 		dataCh <- scanner.Text()

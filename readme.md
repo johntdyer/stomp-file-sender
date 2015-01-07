@@ -19,6 +19,7 @@ Flags:
   --user=USER         Stomp username
   --pass=PASS         Stomp password
   -d, --debug         Debug mode
+  --formatter="text"  Formatter (text or json)
   --version           Show application version.
 ```
 
@@ -37,6 +38,25 @@ Flags:
 
 
 ## Change log
+* 0.2.0
+
+* Support JSON or TEXT logging
+
+* 0.1.2
+
+ * Progress percentage indicator as whole number
+
+```log
+INFO[0000] Starting connection
+DEBU[0000] Initilizing workers
+DEBU[0000] All workers initialized                       Worker Count=5
+INFO[0000] Starting to process input file                Lines=597283
+DEBU[0002] Progress data                                 Completed=0% LinesProcessed=1000 LinesRemaining=596283 LinesTotal=597283
+DEBU[0005] Progress data                                 Completed=0% LinesProcessed=2000 LinesRemaining=595283 LinesTotal=597283
+DEBU[0008] Progress data                                 Completed=0% LinesProcessed=3000 LinesRemaining=594283 LinesTotal=597283
+DEBU[0011] Progress data                                 Completed=0% LinesProcessed=4000 LinesRemaining=593283 LinesTotal=597283
+DEBU[0013] Progress data                                 Completed=0% LinesProcessed=5000 LinesRemaining=592283 LinesTotal=597283
+```
 
 * 0.1.1
 
