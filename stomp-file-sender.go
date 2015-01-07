@@ -39,7 +39,7 @@ type Client struct {
 }
 
 func init() {
-	kingpin.Version("0.0.2")
+	kingpin.Version("0.1.0")
 	kingpin.Parse()
 	logrus.SetOutput(os.Stderr)
 	if *debug {
