@@ -50,7 +50,7 @@ func init() {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
 
-	if strings.ToLower(*logFormatter)) == "json" {
+	if strings.ToLower(*logFormatter) == "json" {
 		logrus.SetFormatter(&logrus.JSONFormatter{})
 	} else {
 		logrus.SetFormatter(&logrus.TextFormatter{})
