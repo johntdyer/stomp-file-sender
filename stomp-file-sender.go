@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	logrus "github.com/Sirupsen/logrus"
+	"github.com/dustin/go-humanize"
 	"github.com/gmallard/stompngo"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"net"
@@ -39,7 +41,7 @@ type Client struct {
 }
 
 func init() {
-	kingpin.Version("0.1.0")
+	kingpin.Version("0.1.1")
 	kingpin.Parse()
 	logrus.SetOutput(os.Stderr)
 	if *debug {
@@ -92,7 +94,7 @@ func main() {
 
 //  Read from file and put data line by line on channel
 func fileReader(path string, dataCh chan<- string, producer_wg *sync.WaitGroup) {
-	counter := 0
+	linesProcessedCounter := 0
 
 	defer producer_wg.Done()
 
@@ -102,24 +104,26 @@ func fileReader(path string, dataCh chan<- string, producer_wg *sync.WaitGroup) 
 	}
 	defer inFile.Close()
 
-	count, _ := lineCounter(path)
+	totalLineCount, _ := lineCounter(path)
 
-	logrus.WithFields(logrus.Fields{"Lines": count}).Info("Starting to process input file")
+	logrus.WithFields(logrus.Fields{"Lines": totalLineCount}).Info("Starting to process input file")
 	scanner := NewScanner(inFile)
 
 	for scanner.Scan() {
-		counter++
-		if counter%1000 == 0 && *debug {
+		linesProcessedCounter++
+		if linesProcessedCounter%1000 == 0 && *debug {
 
 			logrus.WithFields(logrus.Fields{
-				"Finished": counter,
-				"Total":    count, "Remaining": (count - counter),
+				"Completed": fmt.Sprintf("%s", humanize.Ftoa((float64(linesProcessedCounter)/float64(totalLineCount))*100.0)),
+				"Finished":  linesProcessedCounter,
+				"Total":     totalLineCount,
+				"Remaining": (totalLineCount - linesProcessedCounter),
 			}).Debug("Progress data")
 		}
 		dataCh <- scanner.Text()
 	}
 
-	logrus.WithFields(logrus.Fields{"Lines": counter}).Debug("Finished reading " + path)
+	logrus.WithFields(logrus.Fields{"Lines": linesProcessedCounter}).Debug("Finished reading " + path)
 
 	close(dataCh)
 }
