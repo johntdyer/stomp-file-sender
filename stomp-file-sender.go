@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
+	logrus "github.com/Sirupsen/logrus"
 	"github.com/gmallard/stompngo"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"net"
 	"os"
+	"strconv"
+	"sync"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	workerCount   = kingpin.Flag("workers", "Number of workers to send/receive").Short('w').Int()
 	serverUser    = kingpin.Flag("user", "Username").OverrideDefaultFromEnvar("STOMP_USER").String()
 	serverPass    = kingpin.Flag("pass", "Password").OverrideDefaultFromEnvar("STOMP_PASS").String()
+	debug         = kingpin.Flag("debug", "Enable debug mode.").Short('d').Bool()
 
 	client Client
 	done   = make(chan bool)
@@ -37,9 +39,14 @@ type Client struct {
 }
 
 func init() {
-	kingpin.Version("0.0.1")
+	kingpin.Version("0.0.2")
 	kingpin.Parse()
-
+	logrus.SetOutput(os.Stderr)
+	if *debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
 	// Set default of 4 workers
 	if *workerCount == 0 {
 		*workerCount = 4
@@ -47,118 +54,85 @@ func init() {
 
 }
 
-// Setups connection options
-func (client *Client) setOpts() {
-
-	client.Host = *serverAddr
-	client.Port = *serverPort
-	client.Uuid = stompngo.Uuid()
-	client.Queue = *queueName
-
-	if *serverUser != "" {
-		client.User = *serverUser
-	}
-
-	if *serverPass != "" {
-		client.Password = *serverPass
-	}
-}
-
-// Creates net connection
-func (client *Client) netConnection() (conn net.Conn, err error) {
-	conn, err = net.Dial("tcp", net.JoinHostPort(client.Host, client.Port))
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-
-	client.NetConnection = conn
-	return
-}
-
-func (client *Client) stompConnection() *stompngo.Connection {
-	headers := stompngo.Headers{
-		"accept-version", "1.1",
-		"host", client.Host,
-		"login", client.User,
-		"passcode", client.Password,
-	}
-
-	conn, err := stompngo.Connect(client.NetConnection, headers)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
-	}
-
-	client.StompConnection = conn
-	return conn
-}
-
-func (client *Client) Connect() (conn *stompngo.Connection) {
-	client.setOpts()
-	client.netConnection()
-
-	conn = client.stompConnection()
-
-	return
-}
-
-func (client *Client) Disconnect() {
-	client.StompConnection.Disconnect(stompngo.Headers{})
-	client.NetConnection.Close()
-}
-
 //  Start main
 //
 //
 func main() {
+	producer_wg := &sync.WaitGroup{}
+	consumer_wg := &sync.WaitGroup{}
 
-	fmt.Println("Starting connection")
+	// Add producer wait group
+	producer_wg.Add(1)
+
+	// Add worker wait groups
+	consumer_wg.Add(*workerCount)
+
+	logrus.Info("Starting connection")
 	_ = client.Connect()
 	defer client.Disconnect()
 
-	dataCh := make(chan string, *workerCount)
+	dataCh := make(chan string)
 
 	// Start workers
-	fmt.Println("Create workers")
+	logrus.Debug("Initilizing workers")
 	for id := 1; id <= *workerCount; id++ {
-		go sender(id, &client, dataCh)
+		go worker(id, &client, dataCh, consumer_wg)
 	}
+	logrus.WithFields(logrus.Fields{"Worker Count": *workerCount}).Debug("All workers initialized")
 
 	//  Start reader go routine
-	fmt.Println("Read file")
-	go fileReader(*fileToProcess, dataCh)
+	go fileReader(*fileToProcess, dataCh, producer_wg)
 
-	<-done
+	// End wait groups
+	producer_wg.Wait()
+	consumer_wg.Wait()
 
-	fmt.Println("Done")
+	logrus.Info("Done")
 }
 
 //  Read from file and put data line by line on channel
-func fileReader(path string, dataCh chan<- string) {
-	inFile, _ := os.Open(path)
+func fileReader(path string, dataCh chan<- string, producer_wg *sync.WaitGroup) {
+	counter := 0
+
+	defer producer_wg.Done()
+
+	inFile, err := os.Open(path)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	defer inFile.Close()
-	scanner := bufio.NewScanner(inFile)
-	scanner.Split(bufio.ScanLines)
+
+	count, _ := lineCounter(path)
+
+	logrus.WithFields(logrus.Fields{"Lines": count}).Info("Starting to process input file")
+	scanner := NewScanner(inFile)
 
 	for scanner.Scan() {
+		counter++
+		if counter%1000 == 0 && *debug {
+
+			logrus.WithFields(logrus.Fields{
+				"Finished": counter,
+				"Total":    count, "Remaining": (count - counter),
+			}).Debug("Progress data")
+		}
 		dataCh <- scanner.Text()
 	}
+
+	logrus.WithFields(logrus.Fields{"Lines": counter}).Debug("Finished reading " + path)
+
 	close(dataCh)
 }
 
 //  Read from channel and put on queue
-func sender(id int, client *Client, dataCh <-chan string) {
-
+func worker(id int, client *Client, dataCh <-chan string, w *sync.WaitGroup) {
+	defer w.Done()
 	for message := range dataCh {
-		//fmt.Println("Worker", id, "message", len(message))
-
 		headers := stompngo.Headers{"destination", *queueName, "suppress-content-length", "true", "id", client.Uuid, "persistent", "true"}
 		err := client.StompConnection.Send(headers, message)
 		if err != nil {
-			fmt.Println(err)
+			logrus.Fatal(err)
 		}
 	}
-
-	done <- true
+	logrus.Debug("Worker # [" + strconv.Itoa(id) + "] done")
 }
